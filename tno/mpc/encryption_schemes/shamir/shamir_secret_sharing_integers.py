@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 import secrets
 from dataclasses import dataclass, field
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
 from tno.mpc.encryption_schemes.utils import mod_inv
 
@@ -43,18 +43,27 @@ class ShamirSecretSharingIntegers:
         # Random polynomial coefficients are sampled uniformly at random from the interval [-A,A],
         # with A as follows:
         self.randomness_interval = (
-            (math.factorial(number_of_parties) ** 2) * (2 ** kappa) * max_int
+            (math.factorial(number_of_parties) ** 2) * (2**kappa) * max_int
         )
+        self._van_der_monde: Optional[List[List[int]]] = None
 
-        # Vandermonde matrix for evaluation of polynomials at points [1,..,n].
-        # This essentialy creates a matrix that precomputes i**j for all possible i**j that are
-        # needed for the evaluation of sharing polynomials. We now have that i**j = Vm[i][j].
-        # To evaluate a polynomial p(x) = a0 + a1 * x + ... + ad * x**d we can simply compute
-        # a0 * Vm[x][0] + a1 * Vm[x][1] + ... + ad * Vm[x][d].
-        self.van_der_monde = [
-            [pow(i + 1, j) for j in range(polynomial_degree + 1)]
-            for i in range(number_of_parties)
-        ]
+    @property
+    def van_der_monde(self) -> List[List[int]]:
+        """
+        Vandermonde matrix for evaluation of polynomials at points [1,..,n].
+        This essentialy creates a matrix that precomputes i**j for all possible i**j that are
+        needed for the evaluation of sharing polynomials. We now have that i**j = Vm[i][j].
+        To evaluate a polynomial p(x) = a0 + a1 * x + ... + ad * x**d we can simply compute
+        a0 * Vm[x][0] + a1 * Vm[x][1] + ... + ad * Vm[x][d].
+
+        :return: A VanDerMonde matrix of dimpensions self.polynomial_degree + 1 x self.number_of_parties
+        """
+        if not self._van_der_monde:
+            self._van_der_monde = [
+                [pow(i + 1, j) for j in range(self.polynomial_degree + 1)]
+                for i in range(self.number_of_parties)
+            ]
+        return self._van_der_monde
 
     def share_secret(self, secret: int) -> IntegerShares:
         """
@@ -84,6 +93,23 @@ class ShamirSecretSharingIntegers:
         sharing = IntegerShares(self, shares, self.polynomial_degree, scaling)
         return sharing
 
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare equality between this ShamirSecretSharingIntegers and the other object.
+
+        :param other: Object to compare with.
+        :return: Boolean stating (in)equality
+        """
+        if isinstance(other, ShamirSecretSharingIntegers):
+            return (
+                self.kappa == other.kappa
+                and self.max_int == other.max_int
+                and self.number_of_parties == other.number_of_parties
+                and self.polynomial_degree == other.polynomial_degree
+            )
+        # else
+        return False
+
     def serialize(self) -> Dict[str, int]:
         """
         Serialization function
@@ -96,102 +122,6 @@ class ShamirSecretSharingIntegers:
             "t": self.polynomial_degree,
             "Max": self.max_int,
         }
-
-
-@dataclass
-class Shares:
-    r"""
-    Shares contains all shares of this party.
-    Every subclass contains an object for that element, such as $p$ or $q$.
-    These objects contain up to two entries: "additive" and "shares",
-    in "additive", the local additive share of that element is stored,
-    in "shares", the shamir shares of the local additive share are stored.
-    """
-
-    @dataclass
-    class PartialDecryption:
-        """
-        Partial decryption containing shares of at least this party.
-        """
-
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class P:
-        r"""
-        Shares of $p$.
-        """
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class Q:
-        r"""
-        Shares of $q$.
-        """
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class N:
-        r"""
-        Shares of $n$.
-        """
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class Biprime:
-        """
-        Shares of the used biprime.
-        """
-
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class V:
-        r"""
-        Shares of $v$.
-        """
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class Lambda:
-        r"""
-        Shares of $\lambda$.
-        """
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class Beta:
-        r"""
-        Shares of $\beta$.
-        """
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    @dataclass
-    class SecretKey:
-        """
-        Shares of the secret key.
-        """
-
-        additive: int = 0
-        shares: Dict[int, int] = field(default_factory=dict)
-
-    partial_decryption: "Shares.PartialDecryption" = field(
-        default_factory=PartialDecryption
-    )
-    p: "Shares.P" = field(default_factory=P)
-    q: "Shares.Q" = field(default_factory=Q)
-    n: "Shares.N" = field(default_factory=N)
-    biprime: "Shares.Biprime" = field(default_factory=Biprime)
-    v: "Shares.V" = field(default_factory=V)
-    lambda_: "Shares.Lambda" = field(default_factory=Lambda)
-    beta: "Shares.Beta" = field(default_factory=Beta)
-    secret_key: "Shares.SecretKey" = field(default_factory=SecretKey)
 
 
 class IntegerShares:

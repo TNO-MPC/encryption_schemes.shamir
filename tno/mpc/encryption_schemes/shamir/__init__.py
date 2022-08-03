@@ -11,6 +11,5 @@ from .shamir_secret_sharing_integers import IntegerShares as IntegerShares
 from .shamir_secret_sharing_integers import (
     ShamirSecretSharingIntegers as ShamirSecretSharingIntegers,
 )
-from .shamir_secret_sharing_integers import Shares as Shares
 
-__version__ = "0.1.1"
+__version__ = "1.1.0"

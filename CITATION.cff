@@ -18,6 +18,5 @@ contact:
 repository-code: https://github.com/TNO-MPC/encryption_schemes.shamir
 repository-artifact: https://pypi.org/project/tno.mpc.encryption_schemes.shamir
 title: TNO MPC Lab - Encryption Schemes - Shamir
-version: v0.1.1
-date-released: 2021-12-24
-
+version: v1.1.0
+date-released: 2022-08-03

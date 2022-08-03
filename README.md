@@ -9,7 +9,7 @@ The package tno.mpc.encryption_schemes.shamir is part of the TNO Python Toolbox.
 
 ## Documentation
 
-Documentation of the tno.mpc.encryption_schemes.shamir package can be found [here](https://docs.mpc.tno.nl/encryption_schemes/shamir/0.1.1).
+Documentation of the tno.mpc.encryption_schemes.shamir package can be found [here](https://docs.mpc.tno.nl/encryption_schemes/shamir/1.1.0).
 
 ## Install
 

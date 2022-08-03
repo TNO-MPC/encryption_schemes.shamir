@@ -1,6 +1,8 @@
 """
 Tests for the regular Shamir Secret Sharing scheme functionality.
 """
+from typing import Tuple
+
 import pytest
 import sympy
 from _pytest.fixtures import SubRequest
@@ -8,16 +10,18 @@ from _pytest.fixtures import SubRequest
 from tno.mpc.encryption_schemes.shamir import ShamirSecretSharingIntegers
 
 moduli = [sympy.prime(_) for _ in range(13000, 13010)]  # at least 10657
-polynomial_degree = [2, 2, 2, 3, 3, 3, 4, 4, 5, 5]
+polynomial_degrees = [2, 2, 2, 3, 3, 3, 4, 4, 5, 5]
 n_parties = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 secrets = list(range(0, 100, 10))
+kappas = [40, 40, 40, 40, 40, 80, 80, 80, 80, 80]
+max_ints = [1000 + _ for _ in range(10)]
 
 
 @pytest.fixture(
     name="shamir_scheme",
     params=[
-        {"number_of_parties": n_parties[i], "polynomial_degree": polynomial_degree[i]}
-        for i in range(10)
+        {"number_of_parties": n_parties[_], "polynomial_degree": polynomial_degrees[_]}
+        for _ in range(10)
     ],
 )
 def fixture_shamir_scheme(request: SubRequest) -> ShamirSecretSharingIntegers:
@@ -28,6 +32,59 @@ def fixture_shamir_scheme(request: SubRequest) -> ShamirSecretSharingIntegers:
     :return: ShamirSecretSharingIntegers scheme using one of the parameter sets.
     """
     return ShamirSecretSharingIntegers(max_int=1000, **request.param)
+
+
+@pytest.mark.parametrize(
+    "scheme_parameters",
+    [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
+)
+def test_integer_shamir_scheme_equality(
+    scheme_parameters: Tuple[int, int, int, int]
+) -> None:
+    """
+    Test whether two equal Integer Shamir schemes are seen as equal.
+
+    :param scheme_parameters: A Tuple containing modulus, number of parties and a polynomial degree. Used to
+        instantiate the scheme.
+    """
+    assert ShamirSecretSharingIntegers(
+        *scheme_parameters
+    ) == ShamirSecretSharingIntegers(*scheme_parameters)
+
+
+@pytest.mark.parametrize(
+    "scheme_parameters",
+    [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
+)
+def test_integer_shamir_scheme_inequality(
+    scheme_parameters: Tuple[int, int, int, int]
+) -> None:
+    """
+    Test whether two different Integer Shamir schemes are seen as not equal.
+
+    Also tests whether Integer Shamir scheme unequal to other object.
+
+    :param scheme_parameters: A Tuple containing modulus, number of parties and a polynomial degree. Used to
+        instantiate the scheme.
+    """
+    kappa, max_int, n_party, polynomial_degree = scheme_parameters
+    correct_scheme = ShamirSecretSharingIntegers(
+        kappa, max_int, n_party, polynomial_degree
+    )
+    assert correct_scheme != ShamirSecretSharingIntegers(
+        kappa + 1, max_int, n_party, polynomial_degree
+    )
+    assert correct_scheme != ShamirSecretSharingIntegers(
+        kappa, max_int + 1, n_party, polynomial_degree
+    )
+    assert correct_scheme != ShamirSecretSharingIntegers(
+        kappa, max_int, n_party + 1, polynomial_degree
+    )
+    assert correct_scheme != ShamirSecretSharingIntegers(
+        kappa, max_int, n_party, polynomial_degree + 1
+    )
+    # test non-scheme comparison
+    assert correct_scheme != scheme_parameters
 
 
 @pytest.mark.parametrize("secret", secrets)

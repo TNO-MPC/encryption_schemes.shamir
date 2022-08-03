@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import secrets
 import warnings
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 
 from tno.mpc.encryption_schemes.utils import is_prime, mod_inv
 
@@ -20,7 +20,10 @@ class ShamirSecretSharingScheme:
     """
 
     def __init__(
-        self, modulus: int, number_of_parties: int, polynomial_degree: int
+        self,
+        modulus: int,
+        number_of_parties: int,
+        polynomial_degree: int,
     ) -> None:
         r"""
         Initialize a $t$-out-of-$n$ secret sharing scheme where
@@ -41,15 +44,25 @@ class ShamirSecretSharingScheme:
         if not is_prime(self.modulus):
             warnings.warn(f"The modulus {self.modulus} is not prime")
 
-        # Vandermonde matrix for evaluation of polynomials at points [1,..,n].
-        # This essentialy creates a matrix that precomputes i**j for all possible i**j that are
-        # needed for the evaluation of sharing polynomials. We now have that i**j = Vm[i][j].
-        # To evaluate a polynomial p(x) = a0 + a1 * x + ... + ad * x**d we can simply compute
-        # a0 * Vm[x][0] + a1 * Vm[x][1] + ... + ad * Vm[x][d].
-        self.van_der_monde = [
-            [pow(i + 1, j, modulus) for j in range(polynomial_degree + 1)]
-            for i in range(number_of_parties)
-        ]
+        self._van_der_monde: Optional[List[List[int]]] = None
+
+    @property
+    def van_der_monde(self) -> List[List[int]]:
+        """
+        Vandermonde matrix for evaluation of polynomials at points [1,..,n].
+        This essentialy creates a matrix that precomputes i**j for all possible i**j that are
+        needed for the evaluation of sharing polynomials. We now have that i**j = Vm[i][j].
+        To evaluate a polynomial p(x) = a0 + a1 * x + ... + ad * x**d we can simply compute
+        a0 * Vm[x][0] + a1 * Vm[x][1] + ... + ad * Vm[x][d].
+
+        :return: A VanDerMonde matrix of dimpensions self.polynomial_degree + 1 x self.number_of_parties
+        """
+        if not self._van_der_monde:
+            self._van_der_monde = [
+                [pow(i + 1, j, self.modulus) for j in range(self.polynomial_degree + 1)]
+                for i in range(self.number_of_parties)
+            ]
+        return self._van_der_monde
 
     def share_secret(self, secret: int) -> ShamirShares:
         """
