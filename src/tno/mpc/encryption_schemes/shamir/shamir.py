@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import secrets
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from tno.mpc.encryption_schemes.utils import is_prime, mod_inv
 
-from .shamir_secret_sharing_integers import IntegerShares
-from .utils import mult_list
+from tno.mpc.encryption_schemes.shamir.shamir_secret_sharing_integers import (
+    IntegerShares,
+)
+from tno.mpc.encryption_schemes.shamir.utils import mult_list
 
 
 class ShamirSecretSharingScheme:
@@ -44,10 +46,10 @@ class ShamirSecretSharingScheme:
         if not is_prime(self.modulus):
             warnings.warn(f"The modulus {self.modulus} is not prime")
 
-        self._van_der_monde: Optional[List[List[int]]] = None
+        self._van_der_monde: list[list[int]] | None = None
 
     @property
-    def van_der_monde(self) -> List[List[int]]:
+    def van_der_monde(self) -> list[list[int]]:
         """
         Vandermonde matrix for evaluation of polynomials at points [1,..,n].
         This essentialy creates a matrix that precomputes i**j for all possible i**j that are
@@ -107,7 +109,7 @@ class ShamirSecretSharingScheme:
         # else
         return False
 
-    def serialize(self) -> Dict[str, int]:
+    def serialize(self) -> dict[str, int]:
         """
         Serialization function
 
@@ -127,7 +129,7 @@ class ShamirShares:
     """
 
     def __init__(
-        self, shamir_sss: ShamirSecretSharingScheme, shares: Dict[int, int]
+        self, shamir_sss: ShamirSecretSharingScheme, shares: dict[int, int]
     ) -> None:
         self.scheme = shamir_sss
         self.shares = shares
@@ -153,9 +155,7 @@ class ShamirShares:
 
     def serialize(
         self,
-    ) -> Dict[
-        str, Union[int, Dict[int, int], Dict[str, int], Dict[str, Dict[str, int]]]
-    ]:
+    ) -> dict[str, int | dict[int, int] | dict[str, int] | dict[str, dict[str, int]]]:
         """
         Serialization function
 

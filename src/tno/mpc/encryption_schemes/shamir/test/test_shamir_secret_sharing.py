@@ -1,7 +1,8 @@
 """
 Tests for the regular Shamir Secret Sharing scheme functionality.
 """
-from typing import Tuple
+
+from __future__ import annotations
 
 import pytest
 import sympy
@@ -36,7 +37,7 @@ def fixture_shamir_scheme(request: SubRequest) -> ShamirSecretSharingScheme:
     "scheme_parameters",
     [(moduli[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
 )
-def test_shamir_scheme_equality(scheme_parameters: Tuple[int, int, int]) -> None:
+def test_shamir_scheme_equality(scheme_parameters: tuple[int, int, int]) -> None:
     """
     Test whether two equal Shamir schemes are seen as equal.
 
@@ -52,7 +53,7 @@ def test_shamir_scheme_equality(scheme_parameters: Tuple[int, int, int]) -> None
     "scheme_parameters",
     [(moduli[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
 )
-def test_shamir_scheme_inequality(scheme_parameters: Tuple[int, int, int]) -> None:
+def test_shamir_scheme_inequality(scheme_parameters: tuple[int, int, int]) -> None:
     """
     Test whether two different Shamir schemes are seen as not equal.
 

@@ -1,13 +1,14 @@
 """
 Tests for the regular Shamir Secret Sharing scheme functionality.
 """
-from typing import Tuple
+
+from __future__ import annotations
 
 import pytest
 import sympy
 from _pytest.fixtures import SubRequest
 
-from tno.mpc.encryption_schemes.shamir import ShamirSecretSharingIntegers
+from tno.mpc.encryption_schemes.shamir import IntegerShares, ShamirSecretSharingIntegers
 
 moduli = [sympy.prime(_) for _ in range(13000, 13010)]  # at least 10657
 polynomial_degrees = [2, 2, 2, 3, 3, 3, 4, 4, 5, 5]
@@ -39,7 +40,7 @@ def fixture_shamir_scheme(request: SubRequest) -> ShamirSecretSharingIntegers:
     [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
 )
 def test_integer_shamir_scheme_equality(
-    scheme_parameters: Tuple[int, int, int, int]
+    scheme_parameters: tuple[int, int, int, int]
 ) -> None:
     """
     Test whether two equal Integer Shamir schemes are seen as equal.
@@ -57,7 +58,7 @@ def test_integer_shamir_scheme_equality(
     [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
 )
 def test_integer_shamir_scheme_inequality(
-    scheme_parameters: Tuple[int, int, int, int]
+    scheme_parameters: tuple[int, int, int, int]
 ) -> None:
     """
     Test whether two different Integer Shamir schemes are seen as not equal.
@@ -164,3 +165,81 @@ def test_rmul_scalar(
     sharing_1 = shamir_scheme.share_secret(secret_1)
     mul = secret_2 * sharing_1
     assert secret_1 * secret_2 == mul.reconstruct_secret()
+
+
+@pytest.mark.parametrize("secret", secrets)
+def test_integer_shares_serialize_and_deserialize(
+    shamir_scheme: ShamirSecretSharingIntegers, secret: int
+) -> None:
+    """
+    Test the serializing the shamir secret sharing scheme
+
+    :param shamir_scheme: Shamir sharing scheme to be used.
+    :param secret: Secret to be shared and reconstructed.
+    """
+    sharing = shamir_scheme.share_secret(secret)
+    serialized_shares = sharing.serialize()
+    reconstructed_shares = IntegerShares.deserialize(serialized_shares)
+    assert sharing == reconstructed_shares
+    assert sharing.reconstruct_secret() == secret
+
+
+@pytest.mark.parametrize(
+    "scheme_parameters",
+    [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
+)
+@pytest.mark.parametrize("secret", secrets)
+def test_integer_shares_equality(
+    scheme_parameters: tuple[int, int, int, int], secret: int
+) -> None:
+    """
+    Test whether two equal Integer shares are seen as equal.
+
+    :param scheme_parameters: A Tuple containing modulus, number of parties and a polynomial degree. Used to
+        instantiate the scheme.
+    :param secret: A secret to share.
+    """
+    shares = ShamirSecretSharingIntegers(*scheme_parameters).share_secret(secret)
+    shares2 = IntegerShares(shares.scheme, shares.shares, shares.degree, shares.scaling)
+    assert shares == shares2
+
+
+@pytest.mark.parametrize(
+    "scheme_parameters",
+    [(kappas[_], max_ints[_], n_parties[_], polynomial_degrees[_]) for _ in range(10)],
+)
+@pytest.mark.parametrize("secret", secrets)
+def test_integer_shares_inequality(
+    scheme_parameters: tuple[int, int, int, int], secret: int
+) -> None:
+    """
+    Test whether two different Integer Shamir schemes are seen as not equal.
+
+    Also tests whether Integer Shamir scheme unequal to other object.
+
+    :param scheme_parameters: A Tuple containing modulus, number of parties and a polynomial degree. Used to
+        instantiate the scheme.
+    :param secret: A secret to share.
+    """
+    kappa, max_int, n_party, polynomial_degree = scheme_parameters
+    correct_scheme = ShamirSecretSharingIntegers(
+        kappa, max_int, n_party, polynomial_degree
+    )
+    shares = correct_scheme.share_secret(secret)
+
+    # test different values
+    assert shares != IntegerShares(
+        shares.scheme, shares.shares, shares.degree + 1, shares.scaling
+    )
+
+    assert shares != IntegerShares(
+        shares.scheme, shares.shares, shares.degree, shares.scaling + 1
+    )
+    shares_dict = shares.shares.copy()
+    shares_dict[1] = shares_dict[1] - 1
+    assert shares != IntegerShares(
+        shares.scheme, shares_dict, shares.degree, shares.scaling
+    )
+
+    # test non-scheme comparison
+    assert shares != scheme_parameters

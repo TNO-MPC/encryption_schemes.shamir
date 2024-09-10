@@ -6,15 +6,23 @@ from __future__ import annotations
 
 import math
 import secrets
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, TypedDict
 
+from tno.mpc.communication import SupportsSerialization
 from tno.mpc.encryption_schemes.utils import mod_inv
 
-from .utils import mult_list
+from tno.mpc.encryption_schemes.shamir.utils import mult_list
+
+# Check to see if the communication module is available
+try:
+    from tno.mpc.communication import RepetitionError, Serialization
+
+    COMMUNICATION_INSTALLED = True
+except ModuleNotFoundError:
+    COMMUNICATION_INSTALLED = False
 
 
-class ShamirSecretSharingIntegers:
+class ShamirSecretSharingIntegers(SupportsSerialization):
     """
     Class with Shamir Secret sharing functionality over the integers
     """
@@ -45,10 +53,10 @@ class ShamirSecretSharingIntegers:
         self.randomness_interval = (
             (math.factorial(number_of_parties) ** 2) * (2**kappa) * max_int
         )
-        self._van_der_monde: Optional[List[List[int]]] = None
+        self._van_der_monde: list[list[int]] | None = None
 
     @property
-    def van_der_monde(self) -> List[List[int]]:
+    def van_der_monde(self) -> list[list[int]]:
         """
         Vandermonde matrix for evaluation of polynomials at points [1,..,n].
         This essentialy creates a matrix that precomputes i**j for all possible i**j that are
@@ -110,21 +118,55 @@ class ShamirSecretSharingIntegers:
         # else
         return False
 
-    def serialize(self) -> Dict[str, int]:
+    class SerializedShamirSecretSharingIntegers(TypedDict):
         """
-        Serialization function
+        Class which contains the information of the shamir secret share from which deserialization is possible.
+        """
 
-        :return: json object containing the necessary information to deserialize
+        kappa: int
+        number_of_parties: int
+        polynomial_degree: int
+        max_int: int
+
+    def serialize(
+        self, **_kwargs: Any
+    ) -> ShamirSecretSharingIntegers.SerializedShamirSecretSharingIntegers:
+        r"""
+        Serialization function for the shamir secret sharing integers scheme, which will be passed to
+        the communication module
+
+        :param \**_kwargs: optional extra keyword arguments
+        :return: Dictionary containing the serialization of this ShamirSecretSharingIntegers scheme.
         """
         return {
             "kappa": self.kappa,
-            "n": self.number_of_parties,
-            "t": self.polynomial_degree,
-            "Max": self.max_int,
+            "number_of_parties": self.number_of_parties,
+            "polynomial_degree": self.polynomial_degree,
+            "max_int": self.max_int,
         }
 
+    @staticmethod
+    def deserialize(
+        obj: ShamirSecretSharingIntegers.SerializedShamirSecretSharingIntegers,
+        **_kwargs: Any,
+    ) -> ShamirSecretSharingIntegers:
+        r"""
+        Deserialization function for the shamir secret sharing integers scheme, which will be passed to
+        the communication module
 
-class IntegerShares:
+        :param obj: serialization of a shamir secret sharing integers scheme.
+        :param \**_kwargs: optional extra keyword arguments
+        :return: Deserialized ShamirSecretSharingInteger scheme.
+        """
+        return ShamirSecretSharingIntegers(
+            kappa=obj["kappa"],
+            number_of_parties=obj["number_of_parties"],
+            polynomial_degree=obj["polynomial_degree"],
+            max_int=obj["max_int"],
+        )
+
+
+class IntegerShares(SupportsSerialization):
     """
     Class that keeps track of the shares for a certain value that is secret shared over the integers.
     """
@@ -132,7 +174,7 @@ class IntegerShares:
     def __init__(
         self,
         shamir_sss: ShamirSecretSharingIntegers,
-        shares: Dict[int, int],
+        shares: dict[int, int],
         degree: int,
         scaling: int,
     ) -> None:
@@ -144,23 +186,6 @@ class IntegerShares:
         self.n = self.scheme.number_of_parties
         self.n_fac = math.factorial(self.n)
         self.scaling = scaling
-
-    def serialize(
-        self,
-    ) -> Dict[
-        str, Union[int, Dict[int, int], Dict[str, int], Dict[str, Dict[str, int]]]
-    ]:
-        """
-        Serialization function
-
-        :return: json object containing the necessary information to deserialize
-        """
-        return {
-            "scheme": self.scheme.serialize(),
-            "shares": self.shares,
-            "degree": self.degree,
-            "scaling": self.scaling,
-        }
 
     def reconstruct_secret(self, modulus: int = 0) -> int:
         """
@@ -276,3 +301,74 @@ class IntegerShares:
             return IntegerShares(self.scheme, shares, degree, scaling)
         # Else, we redirect to the __rmul__ functionality of other.
         return self * other
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare equality between this IntegerShares and the other object.
+
+        :param other: Object to compare with.
+        :return: Boolean stating (in)equality
+        """
+
+        if not isinstance(other, IntegerShares):
+            return False
+
+        return (
+            other.shares == self.shares
+            and other.degree == self.degree
+            and other.scheme == self.scheme
+            and other.scaling == self.scaling
+        )
+
+    class SerializedIntegerShares(TypedDict):
+        """
+        Class which contains the information of the integer shares from which deserialization is possible.
+        """
+
+        scheme: ShamirSecretSharingIntegers.SerializedShamirSecretSharingIntegers
+        shares: dict[int, int]
+        degree: int
+        scaling: int
+
+    def serialize(self, **_kwargs: Any) -> IntegerShares.SerializedIntegerShares:
+        r"""
+        Serialization function for the integer shares and corresponding scheme, which will be passed to
+        the communication module
+
+        :param \**_kwargs: optional extra keyword arguments
+        :return: Dictionary containing the serialization of this IntegerShare object.
+        """
+        return {
+            "scheme": self.scheme.serialize(),
+            "shares": self.shares,
+            "degree": self.degree,
+            "scaling": self.scaling,
+        }
+
+    @staticmethod
+    def deserialize(
+        obj: IntegerShares.SerializedIntegerShares,
+        **_kwargs: Any,
+    ) -> IntegerShares:
+        r"""
+        Deserialization function for the integer shares and corresponding scheme, which will be passed to
+        the communication module
+
+        :param obj: serialization of the integer shares.
+        :param \**_kwargs: optional extra keyword arguments
+        :return: Deserialized IntegerShares object.
+        """
+        return IntegerShares(
+            shamir_sss=ShamirSecretSharingIntegers.deserialize(obj["scheme"]),
+            shares=obj["shares"],
+            degree=obj["degree"],
+            scaling=obj["scaling"],
+        )
+
+
+if COMMUNICATION_INSTALLED:
+    try:
+        Serialization.register_class(ShamirSecretSharingIntegers)
+        Serialization.register_class(IntegerShares)
+    except RepetitionError:
+        pass

@@ -2,11 +2,12 @@
 Useful functions for the shamir module.
 """
 
+from __future__ import annotations
+
 from functools import reduce
-from typing import List
 
 
-def mult_list(list_: List[int], modulus: int = 0) -> int:
+def mult_list(list_: list[int], modulus: int = 0) -> int:
     """
     Utility function to multiply a list of numbers in a modular group
 
